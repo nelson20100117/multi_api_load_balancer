@@ -1,0 +1,17 @@
+[
+  {
+    "id": "bp2dhvj",
+    "timestamp": "2026-05-23T15:28:59.892Z",
+    "model": "gemini-3.1-flash-lite:generateContent",
+    "prompt": "Hello",
+    "routingChain": [
+      {
+        "keyName": "Test Key 2",
+        "status": 400,
+        "error": "Invalid JSON payload received. Unknown name \"force_key\": Cannot bind query parameter. Field 'force_key' could not be found in request message."
+      }
+    ],
+    "finalStatus": "failed",
+    "selectedKeyName": null
+  }
+]

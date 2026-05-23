@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemini Multi-API Load Balancer & Proxy</title>
+  <meta name="description" content="Dashboard and configuration interface for Gemini Multi-API key rotation and error failover proxy.">
+  <link rel="icon" type="image/png" href="logo.png">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- CSS -->
+  <link rel="stylesheet" href="style.css">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="glass-bg"></div>
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+
+  <!-- Fullscreen Login Overlay -->
+  <div id="login-overlay" class="login-overlay" style="display: none;">
+    <div class="login-glow-orb orb-3"></div>
+    <div class="login-card glass-card">
+      <div class="login-header">
+        <img src="logo.png" alt="Gemini Load Balancer Logo" class="login-logo-img">
+        <h2>Gemini Load Balancer</h2>
+        <p class="login-subtitle">Dashboard Portal Login</p>
+      </div>
+      <form id="login-form" class="login-form">
+        <div class="input-group">
+          <label for="login-password-input">Dashboard Password</label>
+          <div class="password-wrapper">
+            <input type="password" id="login-password-input" placeholder="Enter password..." required>
+            <button type="button" id="toggle-login-password-btn" title="Toggle Visibility">
+              <i class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+        </div>
+        <div id="login-error-msg" class="login-error-msg">
+          <i class="fa-solid fa-circle-exclamation"></i> <span>Invalid Password</span>
+        </div>
+        <button type="submit" id="login-submit-btn" class="btn btn-primary w-full">
+          <span>Authenticate</span>
+          <i class="fa-solid fa-right-to-bracket"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="container">
+    <header class="app-header">
+      <div class="logo-area">
+        <img src="logo.png" alt="Gemini Load Balancer Logo" class="logo-img">
+        <div>
+          <h1>Gemini Load Balancer</h1>
+          <p class="subtitle">Multi-API Key Failover Gateway</p>
+        </div>
+      </div>
+      <nav id="nav-tabs" class="tab-navigation" style="display: none;">
+        <button id="tab-dashboard-btn" class="tab-btn active" title="Go to Key Settings & Playground">
+          <i class="fa-solid fa-gauge-high"></i> Dashboard
+        </button>
+        <button id="tab-analytics-btn" class="tab-btn" title="Go to Performance Charts & Averages">
+          <i class="fa-solid fa-chart-line"></i> Analytics
+        </button>
+      </nav>
+      <div class="header-actions">
+        <div id="proxy-status-badge" class="status-badge idle">
+          <span class="pulse-dot"></span>
+          <span id="proxy-status-text">Server: Connected</span>
+        </div>
+        <button id="logout-btn" class="btn btn-danger btn-sm" title="Log out from Dashboard">
+          <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </button>
+      </div>
+    </header>
+
+    <!-- DASHBOARD VIEW -->
+    <main class="dashboard-grid" id="dashboard-view">
+      <!-- LEFT PANEL: CONFIGURATION -->
+      <section class="panel-left">
+        <!-- Card 1: Access Control -->
+        <div class="card glass-card" id="client-settings-card">
+          <div class="card-header">
+            <h2><i class="fa-solid fa-shield-halved text-accent"></i> Access Control</h2>
+          </div>
+          <div class="card-body">
+            <p class="card-desc font-semibold" style="margin-bottom: 0.5rem; color: var(--text-main);">1. Client API Authentication</p>
+            <p class="card-desc" style="margin-bottom: 0.75rem;">Your applications must provide this client access key in headers (<code>x-goog-api-key</code>) or query (<code>?key=...</code>) to authenticate.</p>
+            <div class="input-group">
+              <label for="client-access-key-input">Client Access Key</label>
+              <div class="input-with-button">
+                <div class="password-wrapper">
+                  <input type="password" id="client-access-key-input" value="apikey" placeholder="Enter proxy access key...">
+                  <button type="button" id="toggle-client-key-btn" title="Toggle Visibility">
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                </div>
+                <button id="save-client-key-btn" class="btn btn-primary">Save Key</button>
+              </div>
+            </div>
+            
+            <p class="card-desc font-semibold" style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">2. Dashboard Settings</p>
+            <p class="card-desc" style="margin-bottom: 0.75rem;">Update the password used to access this administration dashboard panel.</p>
+            <div class="input-group">
+              <label for="dashboard-password-input">New Dashboard Password</label>
+              <div class="input-with-button">
+                <div class="password-wrapper">
+                  <input type="password" id="dashboard-password-input" placeholder="Enter new dashboard password...">
+                  <button type="button" id="toggle-dashboard-key-btn" title="Toggle Visibility">
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                </div>
+                <button id="save-dashboard-key-btn" class="btn btn-primary">Update Password</button>
+              </div>
+            </div>
+
+            <div class="endpoint-info">
+              <span class="label">Proxy Endpoint Base:</span>
+              <div class="copy-box">
+                <code id="proxy-endpoint-url">http://localhost:3000/v1beta</code>
+                <button id="copy-endpoint-btn" class="btn-copy" title="Copy to Clipboard">
+                  <i class="fa-regular fa-copy"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: Backend Gemini API Keys -->
+        <div class="card glass-card" id="keys-management-card">
+          <div class="card-header flex-header">
+            <h2><i class="fa-solid fa-key text-accent"></i> Gemini API Keys</h2>
+            <button id="add-key-btn" class="btn btn-success btn-sm">
+              <i class="fa-solid fa-plus"></i> Add Key
+            </button>
+          </div>
+          <div class="card-body">
+            <p class="card-desc">Configure keys in order of priority. The balancer will try the primary key first and fallback sequentially upon error.</p>
+            
+            <div id="keys-list" class="keys-list">
+              <!-- Dynamically populated -->
+              <div class="no-keys-fallback">
+                <i class="fa-solid fa-key"></i>
+                <p>No keys added yet. Add at least one Gemini API key to start proxying requests.</p>
+              </div>
+            </div>
+
+            <div class="keys-actions">
+              <button id="save-keys-btn" class="btn btn-primary w-full">
+                <i class="fa-solid fa-floppy-disk"></i> Save Key Configuration
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT PANEL: INTERACTION & LOGS -->
+      <section class="panel-right">
+        <!-- Card 3: API Playground -->
+        <div class="card glass-card" id="playground-card">
+          <div class="card-header">
+            <h2><i class="fa-solid fa-terminal text-accent"></i> API Playground</h2>
+          </div>
+          <div class="card-body flex-col-body">
+            <div class="playground-controls">
+              <div class="control-group">
+                <label for="model-selector">Gemini Model</label>
+                <select id="model-selector">
+                  <!-- Dynamically populated -->
+                </select>
+                <input type="text" id="custom-model-input" class="hidden-input" placeholder="Enter custom model id..." style="display: none;">
+              </div>
+              <div class="control-group">
+                <label for="route-target-selector">Route Target</label>
+                <select id="route-target-selector">
+                  <option value="all">Load Balancer (Proxy Loop)</option>
+                  <!-- Dynamically populated with individual keys -->
+                </select>
+              </div>
+              <div class="control-group-row" style="grid-column: span 2; height: 1.5rem; margin-top: 0.5rem;">
+                <label class="checkbox-container">
+                  <input type="checkbox" id="stream-checkbox" checked>
+                  <span class="checkmark"></span>
+                  Stream response
+                </label>
+              </div>
+            </div>
+
+            <div class="prompt-input-area">
+              <textarea id="prompt-input" placeholder="Type a prompt to test the load balancer (e.g. 'Write a short poem about code')..."></textarea>
+              <button id="send-prompt-btn" class="btn btn-accent btn-send">
+                <span>Send Request</span>
+                <i class="fa-solid fa-paper-plane"></i>
+              </button>
+            </div>
+
+            <!-- Visual Routing Guide -->
+            <div id="routing-visualizer" class="routing-visualizer" style="display: none;">
+              <h3>Routing Walkthrough</h3>
+              <div id="routing-steps" class="routing-steps">
+                <!-- Dynamically populated steps -->
+              </div>
+            </div>
+
+            <div class="response-display">
+              <div class="response-header">
+                <span>Output Response</span>
+                <span id="response-status" class="response-status"></span>
+              </div>
+              <div id="response-output-box" class="response-output-box">
+                <p class="placeholder-text">Response content will appear here...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 4: Live Proxy Logs -->
+        <div class="card glass-card" id="logs-card">
+          <div class="card-header flex-header">
+            <h2><i class="fa-solid fa-list-ul text-accent"></i> Live Routing Logs</h2>
+            <button id="clear-logs-btn" class="btn-icon" title="Clear Console Log Display">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
+          <div class="card-body">
+            <div id="logs-console" class="logs-console">
+              <!-- Dynamically populated console lines -->
+              <div class="log-line system-line">
+                <span class="log-time">[System Init]</span> Console initialized. Waiting for proxy traffic...
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ANALYTICS VIEW -->
+    <main class="analytics-view-container" id="analytics-view" style="display: none;">
+      <section class="card glass-card w-full">
+        <div class="card-header flex-header" style="flex-wrap: wrap; gap: 1rem;">
+          <h2><i class="fa-solid fa-chart-line text-accent"></i> API Performance Metrics</h2>
+          <div class="analytics-filters" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <div class="control-group-row" style="align-items: center; gap: 0.5rem;">
+              <label for="analytics-key-selector" style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">API Key:</label>
+              <select id="analytics-key-selector" style="padding: 0.4rem 0.75rem;">
+                <option value="all">All Keys Combined</option>
+              </select>
+            </div>
+            <div class="control-group-row" style="align-items: center; gap: 0.5rem;">
+              <label for="analytics-timeframe" style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Timeframe:</label>
+              <select id="analytics-timeframe" style="padding: 0.4rem 0.75rem;">
+                <option value="10m">Last 10 Minutes</option>
+                <option value="1h">Last 1 Hour</option>
+                <option value="24h">Last 24 Hours</option>
+                <option value="7d">Last 7 Days</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrapper" style="position: relative; height: 350px; width: 100%;">
+            <canvas id="analyticsChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stats Summary cards -->
+      <section class="analytics-summary-cards">
+        <div class="card glass-card stat-summary-card">
+          <i class="fa-solid fa-paper-plane text-accent" style="font-size: 1.5rem; margin-bottom: 0.5rem;"></i>
+          <span class="stat-label">Total Requests</span>
+          <span id="stat-total-requests" class="stat-value">0</span>
+        </div>
+        <div class="card glass-card stat-summary-card">
+          <i class="fa-solid fa-circle-check" style="color: var(--accent-green); font-size: 1.5rem; margin-bottom: 0.5rem;"></i>
+          <span class="stat-label">Success Rate</span>
+          <span id="stat-success-rate" class="stat-value text-success">0%</span>
+        </div>
+        <div class="card glass-card stat-summary-card">
+          <i class="fa-solid fa-circle-xmark" style="color: var(--accent-red); font-size: 1.5rem; margin-bottom: 0.5rem;"></i>
+          <span class="stat-label">Failure Rate</span>
+          <span id="stat-fail-rate" class="stat-value text-error">0%</span>
+        </div>
+        <div class="card glass-card stat-summary-card">
+          <i class="fa-solid fa-gauge" style="color: var(--accent-yellow); font-size: 1.5rem; margin-bottom: 0.5rem;"></i>
+          <span class="stat-label">Average Latency</span>
+          <span id="stat-avg-latency" class="stat-value text-latency" style="color: var(--accent-yellow);">0ms</span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="app-footer">
+    <p>Gemini Multi-API Load Balancer & Proxy. Made for pairing multiple API keys with failover fallback.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
