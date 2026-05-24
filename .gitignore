@@ -1,5 +1,6 @@
 # Local configurations & secrets
 config.json
+logs.json
 
 # Dependencies
 node_modules/
