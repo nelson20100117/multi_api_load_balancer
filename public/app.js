@@ -602,8 +602,10 @@ function appendLogToConsole(log) {
 
   if (log.finalStatus === 'processing') {
     line.className += ' warning-line';
-    const lastAttempt = log.routingChain[log.routingChain.length - 1];
-    line.innerHTML = `${timeSpan} Routing to key: <strong style="color:var(--accent-cyan);">${lastAttempt.keyName}</strong>...`;
+    const attemptIndex = log.routingChain.length;
+    const lastAttempt = log.routingChain[attemptIndex - 1];
+    const attemptText = attemptIndex > 1 ? ` (Attempt ${attemptIndex})` : '';
+    line.innerHTML = `${timeSpan} Routing to key: <strong style="color:var(--accent-cyan);">${lastAttempt.keyName}</strong>${attemptText}... | model: ${routeString}`;
   } else if (log.finalStatus === 'success') {
     line.className += ' success-line';
     const chainLength = log.routingChain.length;
