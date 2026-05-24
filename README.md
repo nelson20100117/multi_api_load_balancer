@@ -40,8 +40,8 @@ Included is a beautiful, modern dashboard for live key status tracking, real-tim
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/gemini-multi-api-load-balancer.git
-   cd gemini-multi-api-load-balancer
+   git clone https://github.com/nelson20100117/multi_api_load_balancer.git
+   cd multi_api_load_balancer
    ```
 
 2. Install dependencies:
@@ -53,7 +53,7 @@ Included is a beautiful, modern dashboard for live key status tracking, real-tim
    ```bash
    npm start
    ```
-   *Note: On first startup, the server will automatically copy the safe configuration template `config.example.json` to create `config.json`.*
+   *Note: On first startup, the server will automatically copy the configuration template `config.example.json` to create `config.json`.*
 
 ---
 
@@ -125,5 +125,4 @@ console.log(response.text);
 ## 🔒 Security & Secrets Management
 
 * **Secret Protection**: Your Gemini keys are stored locally in `config.json` and are **never** shared with third parties or sent over the internet outside of official Google endpoint requests.
-* **Git Excluded**: `config.json` is listed in `.gitignore` by default so your keys are never committed to your public Git repositories.
 * **Access Isolation**: Standard clients only require the `clientAccessKey` (which you distribute to applications). Only administrators with the `dashboardPassword` can view logs or configure credentials.
