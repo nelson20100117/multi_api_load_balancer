@@ -124,10 +124,13 @@
             <p class="card-desc" style="margin-bottom: 0.75rem;">Choose how the load balancer routes client requests across active API keys.</p>
             <div class="input-group" style="margin-bottom: 1.5rem;">
               <label for="routing-strategy-select">Routing Strategy</label>
-              <select id="routing-strategy-select" style="width: 100%;">
-                <option value="priority">Priority-Ordered Sequential (Top to Bottom)</option>
-                <option value="latency">Minimum Latency (Fastest Healthy Key First)</option>
-              </select>
+              <div class="input-with-button">
+                <select id="routing-strategy-select" style="flex-grow: 1;">
+                  <option value="priority">Priority-Ordered Sequential (Top to Bottom)</option>
+                  <option value="latency">Minimum Latency (Fastest Healthy Key First)</option>
+                </select>
+                <button id="save-routing-strategy-btn" class="btn btn-primary">Save Strategy</button>
+              </div>
             </div>
 
             <div class="endpoint-info">

@@ -27,6 +27,7 @@ const clearLogsBtn = document.getElementById('clear-logs-btn');
 const proxyStatusBadge = document.getElementById('proxy-status-badge');
 const proxyStatusText = document.getElementById('proxy-status-text');
 const routingStrategySelect = document.getElementById('routing-strategy-select');
+const saveRoutingStrategyBtn = document.getElementById('save-routing-strategy-btn');
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
@@ -266,9 +267,9 @@ function setupEventListeners() {
     });
   });
   
-  // Save routing strategy on change
-  if (routingStrategySelect) {
-    routingStrategySelect.addEventListener('change', async () => {
+  // Save routing strategy
+  if (saveRoutingStrategyBtn) {
+    saveRoutingStrategyBtn.addEventListener('click', async () => {
       const newStrategy = routingStrategySelect.value;
       await saveConfiguration({ routingStrategy: newStrategy });
     });
