@@ -276,7 +276,7 @@ function setupEventListeners() {
 }
 
 // API Functions
-async function loadConfiguration() {
+async function loadConfiguration(skipRenderKeys = false) {
   try {
     const token = localStorage.getItem('dashboardSessionToken') || '';
     const res = await fetch('/api/config', {
@@ -290,7 +290,6 @@ async function loadConfiguration() {
     if (!res.ok) throw new Error('Failed to fetch config');
     
     localConfig = await res.json();
-    localKeys = localConfig.keys || [];
     
     // Set UI values
     clientAccessKeyInput.value = localConfig.clientAccessKey || 'apikey';
@@ -301,8 +300,11 @@ async function loadConfiguration() {
     // Render models selector
     renderModelsSelector(localConfig.models);
     
-    // Render keys list
-    renderKeysList();
+    if (!skipRenderKeys) {
+      localKeys = localConfig.keys || [];
+      // Render keys list
+      renderKeysList();
+    }
     
     // Populate dropdown selectors
     renderSelectorDropdowns();
@@ -315,18 +317,21 @@ async function loadConfiguration() {
 async function saveConfiguration(updatedFields) {
   try {
     const token = localStorage.getItem('dashboardSessionToken') || '';
+    
+    // Build partial update payload based only on modified fields
+    const payload = {};
+    if (updatedFields.clientAccessKey !== undefined) payload.clientAccessKey = updatedFields.clientAccessKey;
+    if (updatedFields.routingStrategy !== undefined) payload.routingStrategy = updatedFields.routingStrategy;
+    if (updatedFields.keys !== undefined) payload.keys = updatedFields.keys;
+    if (updatedFields.dashboardPassword !== undefined) payload.dashboardPassword = updatedFields.dashboardPassword;
+
     const res = await fetch('/api/config', {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({
-        clientAccessKey: updatedFields.clientAccessKey !== undefined ? updatedFields.clientAccessKey : localConfig.clientAccessKey,
-        routingStrategy: updatedFields.routingStrategy !== undefined ? updatedFields.routingStrategy : localConfig.routingStrategy,
-        keys: updatedFields.keys !== undefined ? updatedFields.keys : localKeys,
-        dashboardPassword: updatedFields.dashboardPassword !== undefined ? updatedFields.dashboardPassword : undefined
-      })
+      body: JSON.stringify(payload)
     });
 
     if (res.status === 401) {
@@ -337,7 +342,10 @@ async function saveConfiguration(updatedFields) {
     
     const result = await res.json();
     showToast('Configuration saved successfully!', 'success');
-    await loadConfiguration(); // reload fresh state
+    
+    // If we didn't save keys, skip re-rendering them to preserve unsaved UI input changes
+    const skipRenderKeys = updatedFields.keys === undefined;
+    await loadConfiguration(skipRenderKeys); // reload fresh state
   } catch (err) {
     console.error('Error saving config:', err);
     showToast('Failed to save configuration', 'error');
