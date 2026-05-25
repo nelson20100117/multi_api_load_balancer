@@ -120,6 +120,16 @@
               </div>
             </div>
 
+            <p class="card-desc font-semibold" style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">3. Routing Strategy</p>
+            <p class="card-desc" style="margin-bottom: 0.75rem;">Choose how the load balancer routes client requests across active API keys.</p>
+            <div class="input-group" style="margin-bottom: 1.5rem;">
+              <label for="routing-strategy-select">Routing Strategy</label>
+              <select id="routing-strategy-select" style="width: 100%;">
+                <option value="priority">Priority-Ordered Sequential (Top to Bottom)</option>
+                <option value="latency">Minimum Latency (Fastest Healthy Key First)</option>
+              </select>
+            </div>
+
             <div class="endpoint-info">
               <span class="label">Proxy Endpoint Base:</span>
               <div class="copy-box">

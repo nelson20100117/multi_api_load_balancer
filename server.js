@@ -198,6 +198,7 @@ app.get('/api/logs', authMiddleware, (req, res) => {
 app.get('/api/config', authMiddleware, (req, res) => {
   res.json({
     clientAccessKey: config.clientAccessKey,
+    routingStrategy: config.routingStrategy || 'priority',
     keys: config.keys.map(k => ({
       id: k.id,
       name: k.name,
@@ -214,10 +215,14 @@ app.get('/api/config', authMiddleware, (req, res) => {
 });
 
 app.post('/api/config', authMiddleware, (req, res) => {
-  const { clientAccessKey, keys, dashboardPassword } = req.body;
+  const { clientAccessKey, keys, dashboardPassword, routingStrategy } = req.body;
   
   if (clientAccessKey !== undefined) {
     config.clientAccessKey = clientAccessKey;
+  }
+  
+  if (routingStrategy !== undefined) {
+    config.routingStrategy = routingStrategy;
   }
   
   if (dashboardPassword !== undefined && dashboardPassword.trim() !== '') {
@@ -233,11 +238,11 @@ app.post('/api/config', authMiddleware, (req, res) => {
         name: newKey.name || 'API Key',
         apiKey: newKey.apiKey,
         enabled: newKey.enabled !== false,
-        status: existingKey ? existingKey.status : 'Idle',
-        lastError: existingKey ? existingKey.lastError : null,
-        successCount: existingKey ? existingKey.successCount : 0,
-        errorCount: existingKey ? existingKey.errorCount : 0,
-        latency: existingKey ? existingKey.latency : null
+        status: newKey.status !== undefined ? newKey.status : (existingKey ? existingKey.status : 'Idle'),
+        lastError: newKey.lastError !== undefined ? newKey.lastError : (existingKey ? existingKey.lastError : null),
+        successCount: newKey.successCount !== undefined ? newKey.successCount : (existingKey ? existingKey.successCount : 0),
+        errorCount: newKey.errorCount !== undefined ? newKey.errorCount : (existingKey ? existingKey.errorCount : 0),
+        latency: newKey.latency !== undefined ? newKey.latency : (existingKey ? existingKey.latency : null)
       };
     });
   }
@@ -249,6 +254,7 @@ app.post('/api/config', authMiddleware, (req, res) => {
     success: true,
     config: {
       clientAccessKey: config.clientAccessKey,
+      routingStrategy: config.routingStrategy || 'priority',
       keys: config.keys.map(k => ({
         id: k.id,
         name: k.name,
@@ -367,6 +373,14 @@ app.post('/v1beta/models/:modelWithAction', async (req, res) => {
         }
       });
     }
+  }
+
+  if (!forceKeyId && config.routingStrategy === 'latency') {
+    activeKeys = [...activeKeys].sort((a, b) => {
+      const latA = a.latency === null || a.latency === undefined ? Infinity : a.latency;
+      const latB = b.latency === null || b.latency === undefined ? Infinity : b.latency;
+      return latA - latB;
+    });
   }
 
   if (activeKeys.length === 0) {

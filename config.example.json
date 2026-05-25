@@ -1,6 +1,7 @@
 {
   "clientAccessKey": "apikey",
   "dashboardPassword": "admin",
+  "routingStrategy": "priority",
   "keys": [],
   "models": [
     {

@@ -26,6 +26,7 @@ const logsConsole = document.getElementById('logs-console');
 const clearLogsBtn = document.getElementById('clear-logs-btn');
 const proxyStatusBadge = document.getElementById('proxy-status-badge');
 const proxyStatusText = document.getElementById('proxy-status-text');
+const routingStrategySelect = document.getElementById('routing-strategy-select');
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
@@ -264,6 +265,14 @@ function setupEventListeners() {
       }, 2000);
     });
   });
+  
+  // Save routing strategy on change
+  if (routingStrategySelect) {
+    routingStrategySelect.addEventListener('change', async () => {
+      const newStrategy = routingStrategySelect.value;
+      await saveConfiguration({ routingStrategy: newStrategy });
+    });
+  }
 }
 
 // API Functions
@@ -285,6 +294,9 @@ async function loadConfiguration() {
     
     // Set UI values
     clientAccessKeyInput.value = localConfig.clientAccessKey || 'apikey';
+    if (routingStrategySelect) {
+      routingStrategySelect.value = localConfig.routingStrategy || 'priority';
+    }
     
     // Render models selector
     renderModelsSelector(localConfig.models);
@@ -311,6 +323,7 @@ async function saveConfiguration(updatedFields) {
       },
       body: JSON.stringify({
         clientAccessKey: updatedFields.clientAccessKey !== undefined ? updatedFields.clientAccessKey : localConfig.clientAccessKey,
+        routingStrategy: updatedFields.routingStrategy !== undefined ? updatedFields.routingStrategy : localConfig.routingStrategy,
         keys: updatedFields.keys !== undefined ? updatedFields.keys : localKeys,
         dashboardPassword: updatedFields.dashboardPassword !== undefined ? updatedFields.dashboardPassword : undefined
       })
