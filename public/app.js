@@ -46,19 +46,35 @@ document.addEventListener('DOMContentLoaded', () => {
 function setupEventListeners() {
   // Tab Routing listeners
   const tabHomeBtn = document.getElementById('tab-home-btn');
+  const tabPlaygroundBtn = document.getElementById('tab-playground-btn');
   const tabAnalyticsBtn = document.getElementById('tab-analytics-btn');
   const tabSettingsBtn = document.getElementById('tab-settings-btn');
   const homeView = document.getElementById('home-view');
+  const playgroundView = document.getElementById('playground-view');
   const analyticsView = document.getElementById('analytics-view');
   const settingsView = document.getElementById('settings-view');
   
-  if (tabHomeBtn && tabAnalyticsBtn && tabSettingsBtn) {
+  if (tabHomeBtn && tabPlaygroundBtn && tabAnalyticsBtn && tabSettingsBtn) {
     tabHomeBtn.addEventListener('click', () => {
       tabHomeBtn.classList.add('active');
+      tabPlaygroundBtn.classList.remove('active');
       tabAnalyticsBtn.classList.remove('active');
       tabSettingsBtn.classList.remove('active');
       
       homeView.style.display = 'grid';
+      playgroundView.style.display = 'none';
+      analyticsView.style.display = 'none';
+      settingsView.style.display = 'none';
+    });
+    
+    tabPlaygroundBtn.addEventListener('click', () => {
+      tabPlaygroundBtn.classList.add('active');
+      tabHomeBtn.classList.remove('active');
+      tabAnalyticsBtn.classList.remove('active');
+      tabSettingsBtn.classList.remove('active');
+      
+      homeView.style.display = 'none';
+      playgroundView.style.display = 'flex';
       analyticsView.style.display = 'none';
       settingsView.style.display = 'none';
     });
@@ -66,9 +82,11 @@ function setupEventListeners() {
     tabAnalyticsBtn.addEventListener('click', async () => {
       tabAnalyticsBtn.classList.add('active');
       tabHomeBtn.classList.remove('active');
+      tabPlaygroundBtn.classList.remove('active');
       tabSettingsBtn.classList.remove('active');
       
       homeView.style.display = 'none';
+      playgroundView.style.display = 'none';
       analyticsView.style.display = 'flex';
       settingsView.style.display = 'none';
       
@@ -82,9 +100,11 @@ function setupEventListeners() {
     tabSettingsBtn.addEventListener('click', () => {
       tabSettingsBtn.classList.add('active');
       tabHomeBtn.classList.remove('active');
+      tabPlaygroundBtn.classList.remove('active');
       tabAnalyticsBtn.classList.remove('active');
       
       homeView.style.display = 'none';
+      playgroundView.style.display = 'none';
       analyticsView.style.display = 'none';
       settingsView.style.display = 'grid';
     });

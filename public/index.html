@@ -65,6 +65,9 @@
         <button id="tab-home-btn" class="tab-btn active" title="Go to Home Overview & Logs">
           <i class="fa-solid fa-house"></i> Home
         </button>
+        <button id="tab-playground-btn" class="tab-btn" title="Interact with Gemini API">
+          <i class="fa-solid fa-terminal"></i> Playground
+        </button>
         <button id="tab-analytics-btn" class="tab-btn" title="Go to Performance Charts & Averages">
           <i class="fa-solid fa-chart-line"></i> Analytics
         </button>
@@ -117,64 +120,6 @@
 
       <!-- RIGHT PANEL: INTERACTION & LOGS -->
       <section class="panel-right">
-        <!-- Card 2: API Playground -->
-        <div class="card glass-card" id="playground-card">
-          <div class="card-header">
-            <h2><i class="fa-solid fa-terminal text-accent"></i> API Playground</h2>
-          </div>
-          <div class="card-body flex-col-body">
-            <div class="playground-controls">
-              <div class="control-group">
-                <label for="model-selector">Gemini Model</label>
-                <select id="model-selector">
-                  <!-- Dynamically populated -->
-                </select>
-                <input type="text" id="custom-model-input" class="hidden-input" placeholder="Enter custom model id..." style="display: none;">
-              </div>
-              <div class="control-group">
-                <label for="route-target-selector">Route Target</label>
-                <select id="route-target-selector">
-                  <option value="all">Load Balancer (Proxy Loop)</option>
-                  <!-- Dynamically populated with individual keys -->
-                </select>
-              </div>
-              <div class="control-group-row" style="grid-column: span 2; height: 1.5rem; margin-top: 0.5rem;">
-                <label class="checkbox-container">
-                  <input type="checkbox" id="stream-checkbox" checked>
-                  <span class="checkmark"></span>
-                  Stream response
-                </label>
-              </div>
-            </div>
-
-            <div class="prompt-input-area">
-              <textarea id="prompt-input" placeholder="Type a prompt to test the load balancer (e.g. 'Write a short poem about code')..."></textarea>
-              <button id="send-prompt-btn" class="btn btn-accent btn-send">
-                <span>Send Request</span>
-                <i class="fa-solid fa-paper-plane"></i>
-              </button>
-            </div>
-
-            <!-- Visual Routing Guide -->
-            <div id="routing-visualizer" class="routing-visualizer" style="display: none;">
-              <h3>Routing Walkthrough</h3>
-              <div id="routing-steps" class="routing-steps">
-                <!-- Dynamically populated steps -->
-              </div>
-            </div>
-
-            <div class="response-display">
-              <div class="response-header">
-                <span>Output Response</span>
-                <span id="response-status" class="response-status"></span>
-              </div>
-              <div id="response-output-box" class="response-output-box">
-                <p class="placeholder-text">Response content will appear here...</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- Card 3: Live Routing Logs -->
         <div class="card glass-card" id="logs-card">
           <div class="card-header flex-header">
@@ -193,6 +138,67 @@
           </div>
         </div>
       </section>
+    </main>
+
+    <!-- PLAYGROUND VIEW -->
+    <main class="playground-view-container tab-view" id="playground-view" style="display: none;">
+      <!-- Card 2: API Playground -->
+      <div class="card glass-card w-full" id="playground-card">
+        <div class="card-header">
+          <h2><i class="fa-solid fa-terminal text-accent"></i> API Playground</h2>
+        </div>
+        <div class="card-body flex-col-body">
+          <div class="playground-controls">
+            <div class="control-group">
+              <label for="model-selector">Gemini Model</label>
+              <select id="model-selector">
+                <!-- Dynamically populated -->
+              </select>
+              <input type="text" id="custom-model-input" class="hidden-input" placeholder="Enter custom model id..." style="display: none;">
+            </div>
+            <div class="control-group">
+              <label for="route-target-selector">Route Target</label>
+              <select id="route-target-selector">
+                <option value="all">Load Balancer (Proxy Loop)</option>
+                <!-- Dynamically populated with individual keys -->
+              </select>
+            </div>
+            <div class="control-group-row" style="grid-column: span 2; height: 1.5rem; margin-top: 0.5rem;">
+              <label class="checkbox-container">
+                <input type="checkbox" id="stream-checkbox" checked>
+                <span class="checkmark"></span>
+                Stream response
+              </label>
+            </div>
+          </div>
+
+          <div class="prompt-input-area">
+            <textarea id="prompt-input" placeholder="Type a prompt to test the load balancer (e.g. 'Write a short poem about code')..."></textarea>
+            <button id="send-prompt-btn" class="btn btn-accent btn-send">
+              <span>Send Request</span>
+              <i class="fa-solid fa-paper-plane"></i>
+            </button>
+          </div>
+
+          <!-- Visual Routing Guide -->
+          <div id="routing-visualizer" class="routing-visualizer" style="display: none;">
+            <h3>Routing Walkthrough</h3>
+            <div id="routing-steps" class="routing-steps">
+              <!-- Dynamically populated steps -->
+            </div>
+          </div>
+
+          <div class="response-display">
+            <div class="response-header">
+              <span>Output Response</span>
+              <span id="response-status" class="response-status"></span>
+            </div>
+            <div id="response-output-box" class="response-output-box">
+              <p class="placeholder-text">Response content will appear here...</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
 
     <!-- ANALYTICS VIEW -->

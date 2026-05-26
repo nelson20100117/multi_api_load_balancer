@@ -1171,6 +1171,14 @@ textarea:focus {
   box-shadow: 0 0 10px rgba(0, 240, 255, 0.25);
 }
 
+/* Playground Container Layout */
+.playground-view-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  width: 100%;
+}
+
 /* Analytics Container Layout */
 .analytics-view-container {
   display: flex;
