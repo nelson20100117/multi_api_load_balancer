@@ -24,6 +24,7 @@ const responseOutputBox = document.getElementById('response-output-box');
 const responseStatusSpan = document.getElementById('response-status');
 const logsConsole = document.getElementById('logs-console');
 const clearLogsBtn = document.getElementById('clear-logs-btn');
+const clearPingLogsBtn = document.getElementById('clear-ping-logs-btn');
 const proxyStatusBadge = document.getElementById('proxy-status-badge');
 const proxyStatusText = document.getElementById('proxy-status-text');
 const routingStrategySelect = document.getElementById('routing-strategy-select');
@@ -286,6 +287,27 @@ function setupEventListeners() {
       </div>
     `;
   });
+
+  // Clear ping health check logs
+  if (clearPingLogsBtn) {
+    clearPingLogsBtn.addEventListener('click', async () => {
+      if (!confirm('Are you sure you want to clear all health check history?')) return;
+      try {
+        const token = localStorage.getItem('dashboardSessionToken') || '';
+        const res = await fetch('/api/logs/ping/clear', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (res.status === 401) {
+          handleUnauthorized();
+        }
+      } catch (err) {
+        console.error('Error clearing ping logs:', err);
+      }
+    });
+  }
 
   // Handle model selection (custom option)
   modelSelector.addEventListener('change', () => {
@@ -677,6 +699,8 @@ function initLogStream() {
           </div>
         `;
       }
+    } else if (data.type === 'auto-ping-history') {
+      renderPingLogs(data.history);
     } else if (data.type === 'config') {
       localConfig = data.config;
       localKeys = localConfig.keys || [];
@@ -1497,4 +1521,61 @@ async function runBatchKeysTest() {
     batchTestBtn.disabled = false;
     batchTestBtn.innerHTML = originalText;
   }
+}
+
+// Render Health Check Logs console on Home page
+function renderPingLogs(history) {
+  const pingLogsConsole = document.getElementById('ping-logs-console');
+  if (!pingLogsConsole) return;
+  
+  if (!history || history.length === 0) {
+    pingLogsConsole.innerHTML = `
+      <div class="log-line system-line">
+        No health checks recorded yet.
+      </div>
+    `;
+    return;
+  }
+  
+  pingLogsConsole.innerHTML = '';
+  history.forEach(entry => {
+    const line = document.createElement('div');
+    line.className = 'log-line';
+    
+    // Format timestamp
+    const date = new Date(entry.timestamp);
+    const timeStr = date.toTimeString().split(' ')[0]; // HH:MM:SS
+    
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'log-time';
+    timeSpan.innerText = `[${timeStr}]`;
+    line.appendChild(timeSpan);
+    
+    // Manual/Auto badge
+    const badgeSpan = document.createElement('span');
+    badgeSpan.style.color = entry.isManual ? 'var(--accent-cyan)' : 'var(--text-muted)';
+    badgeSpan.style.fontWeight = '600';
+    badgeSpan.style.marginRight = '0.5rem';
+    badgeSpan.innerText = entry.isManual ? '[Manual]' : '[Auto]';
+    line.appendChild(badgeSpan);
+    
+    // Key Name
+    const keySpan = document.createElement('span');
+    keySpan.style.fontWeight = '500';
+    keySpan.innerText = `${entry.keyName}: `;
+    line.appendChild(keySpan);
+    
+    // Status and Details
+    const statusSpan = document.createElement('span');
+    if (entry.status === 'Healthy') {
+      statusSpan.className = 'success-line';
+      statusSpan.innerText = `Healthy (${entry.latency}ms)`;
+    } else {
+      statusSpan.className = 'error-line';
+      statusSpan.innerText = `Failing (${entry.error || 'Unknown Error'})`;
+    }
+    line.appendChild(statusSpan);
+    
+    pingLogsConsole.appendChild(line);
+  });
 }

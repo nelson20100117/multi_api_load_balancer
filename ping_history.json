@@ -1,0 +1,29 @@
+[
+  {
+    "timestamp": "2026-05-26T11:43:23.248Z",
+    "keyId": "key-high-latency",
+    "keyName": "High Latency Key (300ms)",
+    "status": "Failing",
+    "latency": 300,
+    "error": "400 - API key not valid. Please pass a valid API key.",
+    "isManual": true
+  },
+  {
+    "timestamp": "2026-05-26T11:43:23.244Z",
+    "keyId": "key-untested",
+    "keyName": "Untested Key (null)",
+    "status": "Failing",
+    "latency": null,
+    "error": "400 - API key not valid. Please pass a valid API key.",
+    "isManual": true
+  },
+  {
+    "timestamp": "2026-05-26T11:43:23.240Z",
+    "keyId": "key-low-latency",
+    "keyName": "Low Latency Key (50ms)",
+    "status": "Failing",
+    "latency": 50,
+    "error": "400 - API key not valid. Please pass a valid API key.",
+    "isManual": true
+  }
+]

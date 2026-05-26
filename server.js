@@ -28,6 +28,9 @@ const activeSessions = new Set();
 const LOGS_FILE = path.join(__dirname, 'logs.json');
 let persistedLogs = [];
 
+const PING_HISTORY_FILE = path.join(__dirname, 'ping_history.json');
+let autoPingHistory = [];
+
 // Helper: load config from file
 function loadConfig() {
   try {
@@ -127,6 +130,7 @@ function broadcastConfigUpdate() {
 let autoPingTimer = null;
 
 async function runAutoPing() {
+  const timestamp = new Date().toISOString();
   console.log(`[Auto-Ping] Starting background latency test of all active keys...`);
   const activeKeys = config.keys.filter(k => k.apiKey && k.apiKey.trim() !== '' && k.enabled !== false);
   if (activeKeys.length === 0) {
@@ -134,9 +138,36 @@ async function runAutoPing() {
     return;
   }
   
-  await Promise.allSettled(activeKeys.map(key => pingKey(key)));
+  const pingPromises = activeKeys.map(async (key) => {
+    const res = await pingKey(key);
+    return {
+      timestamp,
+      keyId: key.id,
+      keyName: key.name,
+      status: key.status,
+      latency: key.latency,
+      error: key.lastError,
+      isManual: false
+    };
+  });
+  
+  const results = await Promise.allSettled(pingPromises);
+  
+  results.forEach(r => {
+    if (r.status === 'fulfilled') {
+      autoPingHistory.unshift(r.value);
+    }
+  });
+  
+  // Cap at 100 entries
+  if (autoPingHistory.length > 100) {
+    autoPingHistory = autoPingHistory.slice(0, 100);
+  }
+  
   saveConfig();
+  savePingHistory();
   broadcastConfigUpdate();
+  broadcastAutoPingHistory();
   console.log(`[Auto-Ping] Background latency test complete.`);
 }
 
@@ -147,6 +178,8 @@ function startAutoPingScheduler() {
     const intervalMs = minutes * 60 * 1000;
     console.log(`[Auto-Ping] Scheduler started. Auto-pinging keys every ${minutes} minute(s).`);
     autoPingTimer = setInterval(runAutoPing, intervalMs);
+    // Run once immediately (after 1s) on scheduler start
+    setTimeout(runAutoPing, 1000);
   }
 }
 
@@ -178,6 +211,35 @@ function saveLogs() {
   } catch (err) {
     console.error('Error saving logs:', err);
   }
+}
+
+// Helper: load ping health history from file
+function loadPingHistory() {
+  try {
+    if (fs.existsSync(PING_HISTORY_FILE)) {
+      const data = fs.readFileSync(PING_HISTORY_FILE, 'utf8');
+      autoPingHistory = JSON.parse(data);
+    }
+  } catch (err) {
+    console.error('Error loading ping history:', err);
+  }
+}
+
+// Helper: save ping health history to file
+function savePingHistory() {
+  try {
+    fs.writeFileSync(PING_HISTORY_FILE, JSON.stringify(autoPingHistory, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Error saving ping history:', err);
+  }
+}
+
+// Helper: Broadcast ping history to SSE clients
+function broadcastAutoPingHistory() {
+  const data = JSON.stringify({ type: 'auto-ping-history', history: autoPingHistory });
+  logClients.forEach(client => {
+    client.write(`data: ${data}\n\n`);
+  });
 }
 
 // Helper: prune logs older than 7 days
@@ -229,6 +291,7 @@ function getPromptSnippet(reqBody) {
 // Load state initially
 loadConfig();
 loadLogs();
+loadPingHistory();
 startAutoPingScheduler();
 
 // Authentication Middleware for admin dashboard
@@ -276,6 +339,9 @@ app.get('/api/logs/stream', authMiddleware, (req, res) => {
   
   // Send current history on connect
   res.write(`data: ${JSON.stringify({ type: 'history', logs: requestLogs })}\n\n`);
+  
+  // Send current ping logs history on connect
+  res.write(`data: ${JSON.stringify({ type: 'auto-ping-history', history: autoPingHistory })}\n\n`);
  
   logClients.push(res);
  
@@ -414,9 +480,36 @@ app.post('/api/keys/:id/test', authMiddleware, async (req, res) => {
   }
   
   const result = await pingKey(key);
+  
+  // Add manual test to history
+  const historyEntry = {
+    timestamp: new Date().toISOString(),
+    keyId: key.id,
+    keyName: key.name,
+    status: key.status,
+    latency: key.latency,
+    error: key.lastError,
+    isManual: true
+  };
+  
+  autoPingHistory.unshift(historyEntry);
+  if (autoPingHistory.length > 100) {
+    autoPingHistory = autoPingHistory.slice(0, 100);
+  }
+  
   saveConfig();
+  savePingHistory();
   broadcastConfigUpdate();
+  broadcastAutoPingHistory();
   res.json(result);
+});
+
+// Clear health logs history (Secured)
+app.post('/api/logs/ping/clear', authMiddleware, (req, res) => {
+  autoPingHistory = [];
+  savePingHistory();
+  broadcastAutoPingHistory();
+  res.json({ success: true });
 });
 
 // Intercept all Gemini generateContent/streamGenerateContent requests
