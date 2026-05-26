@@ -1,6 +1,7 @@
 # Local configurations & secrets
 config.json
 logs.json
+ping_history.json
 
 # Dependencies
 node_modules/
