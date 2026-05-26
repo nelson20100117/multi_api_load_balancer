@@ -271,6 +271,35 @@
           <span id="stat-avg-latency" class="stat-value text-latency" style="color: var(--accent-yellow);">0ms</span>
         </div>
       </section>
+
+      <!-- Health Check Analytics Card -->
+      <section class="card glass-card w-full" id="health-analytics-card" style="margin-top: 2rem;">
+        <div class="card-header flex-header">
+          <h2><i class="fa-solid fa-heart-pulse text-accent"></i> Health Check Trends & Sheet</h2>
+        </div>
+        <div class="card-body health-analytics-grid">
+          <div class="chart-wrapper" style="position: relative; height: 300px; width: 100%;">
+            <canvas id="healthChart"></canvas>
+          </div>
+          <div class="health-table-wrapper">
+            <table class="health-sheet-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Key</th>
+                  <th>Status</th>
+                  <th>Latency</th>
+                </tr>
+              </thead>
+              <tbody id="health-sheet-body">
+                <tr>
+                  <td colspan="4" style="text-align: center; color: var(--text-muted);">No health checks recorded yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </main>
 
     <!-- SETTINGS VIEW (API Key Manager & Access Control) -->

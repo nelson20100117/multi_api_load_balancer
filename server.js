@@ -350,6 +350,11 @@ app.get('/api/logs/stream', authMiddleware, (req, res) => {
   });
 });
 
+// GET health check logs history (Secured)
+app.get('/api/logs/ping', authMiddleware, (req, res) => {
+  res.json(autoPingHistory);
+});
+
 // GET historical logs for a given timeframe (Secured)
 app.get('/api/logs', authMiddleware, (req, res) => {
   const timeframe = req.query.timeframe || '10m';

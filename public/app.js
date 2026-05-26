@@ -5,6 +5,8 @@ let logStreamSource = null;
 let localLogs = [];
 let loadedHistoricalLogs = [];
 let myChart = null;
+let healthChart = null;
+let localPingHistory = [];
 
 // DOM Elements
 const clientAccessKeyInput = document.getElementById('client-access-key-input');
@@ -96,6 +98,8 @@ function setupEventListeners() {
         await loadHistoricalAnalytics(timeframeSelector.value);
       }
       updateAnalyticsChart();
+      updateHealthChart(localPingHistory);
+      renderHealthSheet(localPingHistory);
     });
     
     tabSettingsBtn.addEventListener('click', () => {
@@ -414,6 +418,24 @@ async function loadConfiguration(skipRenderKeys = false) {
     
     // Populate dropdown selectors
     renderSelectorDropdowns();
+    
+    // Fetch and render ping history
+    try {
+      const pingRes = await fetch('/api/logs/ping', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (pingRes.ok) {
+        localPingHistory = await pingRes.json();
+        // If the Analytics tab is active, update the health chart & table
+        const analyticsView = document.getElementById('analytics-view');
+        if (analyticsView && analyticsView.style.display !== 'none') {
+          updateHealthChart(localPingHistory);
+          renderHealthSheet(localPingHistory);
+        }
+      }
+    } catch (pingErr) {
+      console.error('Error loading ping logs:', pingErr);
+    }
   } catch (err) {
     console.error('Error loading config:', err);
     updateServerStatus('failing', 'Server: Disconnected');
@@ -700,7 +722,13 @@ function initLogStream() {
         `;
       }
     } else if (data.type === 'auto-ping-history') {
+      localPingHistory = data.history;
       renderPingLogs(data.history);
+      renderHealthSheet(data.history);
+      const analyticsView = document.getElementById('analytics-view');
+      if (analyticsView && analyticsView.style.display !== 'none') {
+        updateHealthChart(data.history);
+      }
     } else if (data.type === 'config') {
       localConfig = data.config;
       localKeys = localConfig.keys || [];
@@ -1577,5 +1605,189 @@ function renderPingLogs(history) {
     line.appendChild(statusSpan);
     
     pingLogsConsole.appendChild(line);
+  });
+}
+
+// Render Health Chart (Chart.js Line Graph) on Analytics tab
+function updateHealthChart(history) {
+  const ctx = document.getElementById('healthChart')?.getContext('2d');
+  if (!ctx) return;
+  
+  if (!history || history.length === 0) {
+    if (healthChart) {
+      healthChart.destroy();
+      healthChart = null;
+    }
+    return;
+  }
+  
+  // Group by timestamp to extract unique times
+  const timestampsMap = {};
+  history.forEach(entry => {
+    timestampsMap[entry.timestamp] = true;
+  });
+  
+  // Sort timestamps oldest to newest
+  const sortedTimestamps = Object.keys(timestampsMap).sort((a, b) => new Date(a) - new Date(b));
+  
+  // Cap chart labels at last 20 unique timestamp runs
+  const activeTimestamps = sortedTimestamps.slice(-20);
+  
+  // Get all unique key names and IDs
+  const keysMap = {};
+  history.forEach(entry => {
+    keysMap[entry.keyId] = entry.keyName;
+  });
+  const keyIds = Object.keys(keysMap);
+  
+  // Pre-selected colors for keys to make it aesthetic
+  const colors = [
+    'rgba(0, 240, 255, 1)',   // cyan
+    'rgba(16, 185, 129, 1)',  // green
+    'rgba(245, 158, 11, 1)',  // yellow
+    'rgba(239, 68, 68, 1)',   // red
+    'rgba(168, 85, 247, 1)',  // purple
+    'rgba(59, 130, 246, 1)'   // blue
+  ];
+  
+  // Create dataset for each key
+  const datasets = keyIds.map((keyId, index) => {
+    const keyName = keysMap[keyId];
+    const dataPoints = activeTimestamps.map(t => {
+      // Find the entry for this key and timestamp
+      const match = history.find(entry => entry.timestamp === t && entry.keyId === keyId);
+      return match && match.status === 'Healthy' ? match.latency : null;
+    });
+    
+    const color = colors[index % colors.length];
+    return {
+      label: keyName,
+      data: dataPoints,
+      borderColor: color,
+      backgroundColor: color.replace('1)', '0.1)'),
+      borderWidth: 2,
+      pointRadius: 3,
+      tension: 0.3,
+      spanGaps: true
+    };
+  });
+  
+  // Format timestamps for display (e.g. HH:MM:SS)
+  const labels = activeTimestamps.map(t => {
+    const date = new Date(t);
+    return date.toTimeString().split(' ')[0];
+  });
+  
+  if (healthChart) {
+    healthChart.data.labels = labels;
+    healthChart.data.datasets = datasets;
+    healthChart.update();
+  } else {
+    healthChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              color: '#94a3b8',
+              font: { family: 'Inter' }
+            }
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            backgroundColor: '#0f172a',
+            titleColor: '#f8fafc',
+            bodyColor: '#cbd5e1',
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            borderWidth: 1
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { color: '#94a3b8' }
+          },
+          y: {
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { color: '#94a3b8' },
+            title: {
+              display: true,
+              text: 'Latency (ms)',
+              color: '#94a3b8'
+            }
+          }
+        }
+      }
+    });
+  }
+}
+
+// Render Health Sheet Table on Analytics tab
+function renderHealthSheet(history) {
+  const tbody = document.getElementById('health-sheet-body');
+  if (!tbody) return;
+  
+  if (!history || history.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" style="text-align: center; color: var(--text-muted);">No health checks recorded yet.</td>
+      </tr>
+    `;
+    return;
+  }
+  
+  tbody.innerHTML = '';
+  // Show up to 50 rows in the table
+  const displayHistory = history.slice(0, 50);
+  
+  displayHistory.forEach(entry => {
+    const tr = document.createElement('tr');
+    
+    // Time
+    const date = new Date(entry.timestamp);
+    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const tdTime = document.createElement('td');
+    tdTime.innerHTML = `<span style="color: var(--text-muted); font-size: 0.75rem;">${dateStr}</span> ${timeStr}`;
+    tr.appendChild(tdTime);
+    
+    // Key Name
+    const tdKey = document.createElement('td');
+    tdKey.innerText = entry.keyName;
+    tr.appendChild(tdKey);
+    
+    // Status (Auto / Manual badge + Status)
+    const tdStatus = document.createElement('td');
+    const badgeType = entry.isManual ? 'Manual' : 'Auto';
+    const badgeColor = entry.isManual ? 'var(--accent-cyan)' : 'var(--text-muted)';
+    
+    const isSuccess = entry.status === 'Healthy';
+    const statusText = isSuccess ? 'Healthy' : 'Failing';
+    const statusClass = isSuccess ? 'text-success' : 'text-error';
+    
+    tdStatus.innerHTML = `
+      <span style="font-size: 0.7rem; padding: 0.1rem 0.35rem; border-radius: 4px; border: 1px solid ${badgeColor}; color: ${badgeColor}; margin-right: 0.5rem; font-weight: 500;">${badgeType}</span>
+      <span class="${statusClass}" style="font-weight: 500;">${statusText}</span>
+    `;
+    tr.appendChild(tdStatus);
+    
+    // Latency
+    const tdLatency = document.createElement('td');
+    if (isSuccess) {
+      tdLatency.innerHTML = `<span class="text-latency" style="color: var(--accent-yellow); font-weight: 500;">${entry.latency}ms</span>`;
+    } else {
+      tdLatency.innerHTML = `<span class="text-error" style="color: var(--accent-red); font-size: 0.75rem;" title="${entry.error || 'Unknown error'}">Error</span>`;
+    }
+    tr.appendChild(tdLatency);
+    
+    tbody.appendChild(tr);
   });
 }
