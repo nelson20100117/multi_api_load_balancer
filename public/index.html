@@ -62,11 +62,14 @@
         </div>
       </div>
       <nav id="nav-tabs" class="tab-navigation" style="display: none;">
-        <button id="tab-dashboard-btn" class="tab-btn active" title="Go to Key Settings & Playground">
-          <i class="fa-solid fa-gauge-high"></i> Dashboard
+        <button id="tab-home-btn" class="tab-btn active" title="Go to Home Overview & Logs">
+          <i class="fa-solid fa-house"></i> Home
         </button>
         <button id="tab-analytics-btn" class="tab-btn" title="Go to Performance Charts & Averages">
           <i class="fa-solid fa-chart-line"></i> Analytics
+        </button>
+        <button id="tab-settings-btn" class="tab-btn" title="Configure Keys & Access Control">
+          <i class="fa-solid fa-sliders"></i> Settings
         </button>
       </nav>
       <div class="header-actions">
@@ -80,94 +83,33 @@
       </div>
     </header>
 
-    <!-- DASHBOARD VIEW -->
-    <main class="dashboard-grid" id="dashboard-view">
-      <!-- LEFT PANEL: CONFIGURATION -->
+    <!-- HOME VIEW (Playground, Live Logs, Status Overview) -->
+    <main class="dashboard-grid tab-view" id="home-view">
+      <!-- LEFT PANEL: HEALTH & STATUS OVERVIEW -->
       <section class="panel-left">
-        <!-- Card 1: Access Control -->
-        <div class="card glass-card" id="client-settings-card">
+        <!-- Card 1: System Health Overview -->
+        <div class="card glass-card" id="system-overview-card">
           <div class="card-header">
-            <h2><i class="fa-solid fa-shield-halved text-accent"></i> Access Control</h2>
+            <h2><i class="fa-solid fa-circle-info text-accent"></i> System Overview</h2>
           </div>
           <div class="card-body">
-            <p class="card-desc font-semibold" style="margin-bottom: 0.5rem; color: var(--text-main);">1. Client API Authentication</p>
-            <p class="card-desc" style="margin-bottom: 0.75rem;">Your applications must provide this client access key in headers (<code>x-goog-api-key</code>) or query (<code>?key=...</code>) to authenticate.</p>
-            <div class="input-group">
-              <label for="client-access-key-input">Client Access Key</label>
-              <div class="input-with-button">
-                <div class="password-wrapper">
-                  <input type="password" id="client-access-key-input" value="apikey" placeholder="Enter proxy access key...">
-                  <button type="button" id="toggle-client-key-btn" title="Toggle Visibility">
-                    <i class="fa-solid fa-eye"></i>
-                  </button>
-                </div>
-                <button id="save-client-key-btn" class="btn btn-primary">Save Key</button>
+            <div class="overview-stats-grid">
+              <div class="overview-stat-box">
+                <span class="stat-title">Active Keys Ratio</span>
+                <span class="stat-value" id="overview-keys-ratio">0 / 0</span>
+                <span class="stat-desc">Healthy keys enabled</span>
+              </div>
+              <div class="overview-stat-box">
+                <span class="stat-title">Global Success Rate</span>
+                <span class="stat-value" id="overview-success-rate">0%</span>
+                <span class="stat-desc">Of all routed requests</span>
               </div>
             </div>
             
-            <p class="card-desc font-semibold" style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">2. Dashboard Settings</p>
-            <p class="card-desc" style="margin-bottom: 0.75rem;">Update the password used to access this administration dashboard panel.</p>
-            <div class="input-group">
-              <label for="dashboard-password-input">New Dashboard Password</label>
-              <div class="input-with-button">
-                <div class="password-wrapper">
-                  <input type="password" id="dashboard-password-input" placeholder="Enter new dashboard password...">
-                  <button type="button" id="toggle-dashboard-key-btn" title="Toggle Visibility">
-                    <i class="fa-solid fa-eye"></i>
-                  </button>
-                </div>
-                <button id="save-dashboard-key-btn" class="btn btn-primary">Update Password</button>
-              </div>
-            </div>
-
-            <p class="card-desc font-semibold" style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">3. Routing Strategy</p>
-            <p class="card-desc" style="margin-bottom: 0.75rem;">Choose how the load balancer routes client requests across active API keys.</p>
-            <div class="input-group" style="margin-bottom: 1.5rem;">
-              <label for="routing-strategy-select">Routing Strategy</label>
-              <div class="input-with-button">
-                <select id="routing-strategy-select" style="flex-grow: 1;">
-                  <option value="priority">Priority-Ordered Sequential (Top to Bottom)</option>
-                  <option value="latency">Minimum Latency (Fastest Healthy Key First)</option>
-                </select>
-                <button id="save-routing-strategy-btn" class="btn btn-primary">Save Strategy</button>
-              </div>
-            </div>
-
-            <div class="endpoint-info">
-              <span class="label">Proxy Endpoint Base:</span>
-              <div class="copy-box">
-                <code id="proxy-endpoint-url">http://localhost:3000/v1beta</code>
-                <button id="copy-endpoint-btn" class="btn-copy" title="Copy to Clipboard">
-                  <i class="fa-regular fa-copy"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Card 2: Backend Gemini API Keys -->
-        <div class="card glass-card" id="keys-management-card">
-          <div class="card-header flex-header">
-            <h2><i class="fa-solid fa-key text-accent"></i> Gemini API Keys</h2>
-            <button id="add-key-btn" class="btn btn-success btn-sm">
-              <i class="fa-solid fa-plus"></i> Add Key
-            </button>
-          </div>
-          <div class="card-body">
-            <p class="card-desc">Configure keys in order of priority. The balancer will try the primary key first and fallback sequentially upon error.</p>
-            
-            <div id="keys-list" class="keys-list">
-              <!-- Dynamically populated -->
-              <div class="no-keys-fallback">
-                <i class="fa-solid fa-key"></i>
-                <p>No keys added yet. Add at least one Gemini API key to start proxying requests.</p>
-              </div>
-            </div>
-
-            <div class="keys-actions">
-              <button id="save-keys-btn" class="btn btn-primary w-full">
-                <i class="fa-solid fa-floppy-disk"></i> Save Key Configuration
-              </button>
+            <p class="card-desc font-semibold" style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">API Key Health Status Board</p>
+            <p class="card-desc" style="margin-bottom: 0.75rem;">Current operational status and last measured latency for each key.</p>
+            <div id="home-keys-status-list" class="keys-status-board">
+              <!-- Dynamically populated status items -->
             </div>
           </div>
         </div>
@@ -175,7 +117,7 @@
 
       <!-- RIGHT PANEL: INTERACTION & LOGS -->
       <section class="panel-right">
-        <!-- Card 3: API Playground -->
+        <!-- Card 2: API Playground -->
         <div class="card glass-card" id="playground-card">
           <div class="card-header">
             <h2><i class="fa-solid fa-terminal text-accent"></i> API Playground</h2>
@@ -233,7 +175,7 @@
           </div>
         </div>
 
-        <!-- Card 4: Live Proxy Logs -->
+        <!-- Card 3: Live Routing Logs -->
         <div class="card glass-card" id="logs-card">
           <div class="card-header flex-header">
             <h2><i class="fa-solid fa-list-ul text-accent"></i> Live Routing Logs</h2>
@@ -254,7 +196,7 @@
     </main>
 
     <!-- ANALYTICS VIEW -->
-    <main class="analytics-view-container" id="analytics-view" style="display: none;">
+    <main class="analytics-view-container tab-view" id="analytics-view" style="display: none;">
       <section class="card glass-card w-full">
         <div class="card-header flex-header" style="flex-wrap: wrap; gap: 1rem;">
           <h2><i class="fa-solid fa-chart-line text-accent"></i> API Performance Metrics</h2>
@@ -304,6 +246,131 @@
           <i class="fa-solid fa-gauge" style="color: var(--accent-yellow); font-size: 1.5rem; margin-bottom: 0.5rem;"></i>
           <span class="stat-label">Average Latency</span>
           <span id="stat-avg-latency" class="stat-value text-latency" style="color: var(--accent-yellow);">0ms</span>
+        </div>
+      </section>
+    </main>
+
+    <!-- SETTINGS VIEW (API Key Manager & Access Control) -->
+    <main class="dashboard-grid tab-view" id="settings-view" style="display: none;">
+      <!-- LEFT PANEL: API KEY MANAGEMENT -->
+      <section class="panel-left">
+        <!-- Card 1: Backend Gemini API Keys -->
+        <div class="card glass-card" id="keys-management-card">
+          <div class="card-header flex-header">
+            <h2><i class="fa-solid fa-key text-accent"></i> Gemini API Keys</h2>
+            <div class="card-header-actions" style="display: flex; gap: 0.5rem;">
+              <button id="batch-test-btn" class="btn btn-accent btn-sm" title="Test Latency of all enabled API Keys">
+                <i class="fa-solid fa-vial"></i> Batch Test Keys
+              </button>
+              <button id="add-key-btn" class="btn btn-success btn-sm">
+                <i class="fa-solid fa-plus"></i> Add Key
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <p class="card-desc">Configure keys in order of priority. The balancer will try the primary key first and fallback sequentially upon error.</p>
+            
+            <div id="keys-list" class="keys-list">
+              <!-- Dynamically populated -->
+              <div class="no-keys-fallback">
+                <i class="fa-solid fa-key"></i>
+                <p>No keys added yet. Add at least one Gemini API key to start proxying requests.</p>
+              </div>
+            </div>
+
+            <div class="keys-actions">
+              <button id="save-keys-btn" class="btn btn-primary w-full">
+                <i class="fa-solid fa-floppy-disk"></i> Save Key Configuration
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT PANEL: SECURITY CONFIGURATIONS -->
+      <section class="panel-right">
+        <!-- Card 2: Access Control -->
+        <div class="card glass-card" id="client-settings-card">
+          <div class="card-header">
+            <h2><i class="fa-solid fa-shield-halved text-accent"></i> Access Control</h2>
+          </div>
+          <div class="card-body">
+            <p class="card-desc font-semibold" style="margin-bottom: 0.5rem; color: var(--text-main);">1. Client API Authentication</p>
+            <p class="card-desc" style="margin-bottom: 0.75rem;">Your applications must provide this client access key in headers (<code>x-goog-api-key</code>) or query (<code>?key=...</code>) to authenticate.</p>
+            <div class="input-group">
+              <label for="client-access-key-input">Client Access Key</label>
+              <div class="input-with-button">
+                <div class="password-wrapper">
+                  <input type="password" id="client-access-key-input" value="apikey" placeholder="Enter proxy access key...">
+                  <button type="button" id="toggle-client-key-btn" title="Toggle Visibility">
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                </div>
+                <button id="save-client-key-btn" class="btn btn-primary">Save Key</button>
+              </div>
+            </div>
+            
+            <p class="card-desc font-semibold" style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">2. Dashboard Settings</p>
+            <p class="card-desc" style="margin-bottom: 0.75rem;">Update the password used to access this administration dashboard panel.</p>
+            <div class="input-group">
+              <label for="dashboard-password-input">New Dashboard Password</label>
+              <div class="input-with-button">
+                <div class="password-wrapper">
+                  <input type="password" id="dashboard-password-input" placeholder="Enter new dashboard password...">
+                  <button type="button" id="toggle-dashboard-key-btn" title="Toggle Visibility">
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                </div>
+                <button id="save-dashboard-key-btn" class="btn btn-primary">Update Password</button>
+              </div>
+            </div>
+
+            <p class="card-desc font-semibold" style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">3. Routing Strategy</p>
+            <p class="card-desc" style="margin-bottom: 0.75rem;">Choose how the load balancer routes client requests across active API keys.</p>
+            <div class="input-group" style="margin-bottom: 1.5rem;">
+              <label for="routing-strategy-select">Routing Strategy</label>
+              <div class="input-with-button">
+                <select id="routing-strategy-select" style="flex-grow: 1;">
+                  <option value="priority">Priority-Ordered Sequential (Top to Bottom)</option>
+                  <option value="latency">Minimum Latency (Fastest Healthy Key First)</option>
+                </select>
+                <button id="save-routing-strategy-btn" class="btn btn-primary">Save Strategy</button>
+              </div>
+            </div>
+
+            <p class="card-desc font-semibold" style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">4. Auto Latency Testing</p>
+            <p class="card-desc" style="margin-bottom: 0.75rem;">Enable background latency checks of all active keys using Gemini 3.1 Flash Lite periodically.</p>
+            <div class="input-group" style="margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+              <label for="auto-ping-switch" style="cursor: pointer; margin-bottom: 0; font-size: 0.85rem; font-weight: 500; color: var(--text-muted);">Enable Auto-Ping</label>
+              <label class="switch">
+                <input type="checkbox" id="auto-ping-switch">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="input-group" style="margin-bottom: 1.5rem;">
+              <label for="auto-ping-interval-select">Ping Interval</label>
+              <div class="input-with-button">
+                <select id="auto-ping-interval-select" style="flex-grow: 1;">
+                  <option value="1">Every 1 minute</option>
+                  <option value="5">Every 5 minutes</option>
+                  <option value="15">Every 15 minutes</option>
+                  <option value="30">Every 30 minutes</option>
+                  <option value="60">Every 1 hour</option>
+                </select>
+                <button id="save-auto-ping-btn" class="btn btn-primary">Save Auto-Ping</button>
+              </div>
+            </div>
+
+            <div class="endpoint-info">
+              <span class="label">Proxy Endpoint Base:</span>
+              <div class="copy-box">
+                <code id="proxy-endpoint-url">http://localhost:3000/v1beta</code>
+                <button id="copy-endpoint-btn" class="btn-copy" title="Copy to Clipboard">
+                  <i class="fa-regular fa-copy"></i>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </main>

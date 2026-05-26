@@ -55,6 +55,109 @@ function saveConfig() {
   }
 }
 
+// Ping a single API key using Gemini 3.1 Flash Lite
+async function pingKey(key) {
+  const start = Date.now();
+  try {
+    const upstreamUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${key.apiKey}`;
+    const response = await fetch(upstreamUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: 'ping' }] }]
+      })
+    });
+    
+    const elapsed = Date.now() - start;
+    
+    if (response.ok) {
+      key.status = 'Healthy';
+      key.lastError = null;
+      key.latency = elapsed;
+      key.successCount = (key.successCount || 0) + 1;
+      return { success: true, latency: elapsed };
+    } else {
+      const errorText = await response.text();
+      let errorMessage = errorText;
+      try {
+        const parsed = JSON.parse(errorText);
+        errorMessage = parsed.error?.message || errorText;
+      } catch (_) {}
+      
+      key.status = 'Failing';
+      key.lastError = `${response.status} - ${errorMessage}`;
+      key.errorCount = (key.errorCount || 0) + 1;
+      return { success: false, error: errorMessage };
+    }
+  } catch (err) {
+    key.status = 'Failing';
+    key.lastError = `Network Error: ${err.message}`;
+    key.errorCount = (key.errorCount || 0) + 1;
+    return { success: false, error: err.message };
+  }
+}
+
+// Broadcast updated configuration to all connected SSE log clients
+function broadcastConfigUpdate() {
+  const safeConfig = {
+    clientAccessKey: config.clientAccessKey,
+    routingStrategy: config.routingStrategy || 'priority',
+    autoPingEnabled: config.autoPingEnabled === true,
+    autoPingInterval: config.autoPingInterval || 15,
+    keys: config.keys.map(k => ({
+      id: k.id,
+      name: k.name,
+      apiKey: k.apiKey,
+      enabled: k.enabled !== false,
+      status: k.status || 'Idle',
+      lastError: k.lastError || null,
+      successCount: k.successCount || 0,
+      errorCount: k.errorCount || 0,
+      latency: k.latency || null
+    })),
+    models: config.models
+  };
+  const data = JSON.stringify({ type: 'config', config: safeConfig });
+  logClients.forEach(client => {
+    client.write(`data: ${data}\n\n`);
+  });
+}
+
+// Auto-ping timer and run logic
+let autoPingTimer = null;
+
+async function runAutoPing() {
+  console.log(`[Auto-Ping] Starting background latency test of all active keys...`);
+  const activeKeys = config.keys.filter(k => k.apiKey && k.apiKey.trim() !== '' && k.enabled !== false);
+  if (activeKeys.length === 0) {
+    console.log(`[Auto-Ping] No enabled keys to test.`);
+    return;
+  }
+  
+  await Promise.allSettled(activeKeys.map(key => pingKey(key)));
+  saveConfig();
+  broadcastConfigUpdate();
+  console.log(`[Auto-Ping] Background latency test complete.`);
+}
+
+function startAutoPingScheduler() {
+  stopAutoPingScheduler();
+  if (config.autoPingEnabled) {
+    const minutes = Number(config.autoPingInterval) || 15;
+    const intervalMs = minutes * 60 * 1000;
+    console.log(`[Auto-Ping] Scheduler started. Auto-pinging keys every ${minutes} minute(s).`);
+    autoPingTimer = setInterval(runAutoPing, intervalMs);
+  }
+}
+
+function stopAutoPingScheduler() {
+  if (autoPingTimer) {
+    clearInterval(autoPingTimer);
+    autoPingTimer = null;
+    console.log(`[Auto-Ping] Scheduler stopped.`);
+  }
+}
+
 // Helper: load logs from file
 function loadLogs() {
   try {
@@ -126,6 +229,7 @@ function getPromptSnippet(reqBody) {
 // Load state initially
 loadConfig();
 loadLogs();
+startAutoPingScheduler();
 
 // Authentication Middleware for admin dashboard
 function authMiddleware(req, res, next) {
@@ -194,11 +298,12 @@ app.get('/api/logs', authMiddleware, (req, res) => {
   res.json(filtered);
 });
 
-// Config Endpoints (Secured)
 app.get('/api/config', authMiddleware, (req, res) => {
   res.json({
     clientAccessKey: config.clientAccessKey,
     routingStrategy: config.routingStrategy || 'priority',
+    autoPingEnabled: config.autoPingEnabled === true,
+    autoPingInterval: config.autoPingInterval || 15,
     keys: config.keys.map(k => ({
       id: k.id,
       name: k.name,
@@ -215,7 +320,7 @@ app.get('/api/config', authMiddleware, (req, res) => {
 });
 
 app.post('/api/config', authMiddleware, (req, res) => {
-  const { clientAccessKey, keys, dashboardPassword, routingStrategy } = req.body;
+  const { clientAccessKey, keys, dashboardPassword, routingStrategy, autoPingEnabled, autoPingInterval } = req.body;
   
   if (clientAccessKey !== undefined) {
     config.clientAccessKey = clientAccessKey;
@@ -223,6 +328,14 @@ app.post('/api/config', authMiddleware, (req, res) => {
   
   if (routingStrategy !== undefined) {
     config.routingStrategy = routingStrategy;
+  }
+
+  if (autoPingEnabled !== undefined) {
+    config.autoPingEnabled = !!autoPingEnabled;
+  }
+
+  if (autoPingInterval !== undefined) {
+    config.autoPingInterval = Number(autoPingInterval) || 15;
   }
   
   if (dashboardPassword !== undefined && dashboardPassword.trim() !== '') {
@@ -249,12 +362,18 @@ app.post('/api/config', authMiddleware, (req, res) => {
 
   saveConfig();
   
+  // Restart auto-ping background scheduler to apply new settings
+  startAutoPingScheduler();
+  broadcastConfigUpdate();
+  
   // Return safe config representation without dashboardPassword
   res.json({
     success: true,
     config: {
       clientAccessKey: config.clientAccessKey,
       routingStrategy: config.routingStrategy || 'priority',
+      autoPingEnabled: config.autoPingEnabled === true,
+      autoPingInterval: config.autoPingInterval || 15,
       keys: config.keys.map(k => ({
         id: k.id,
         name: k.name,
@@ -294,49 +413,10 @@ app.post('/api/keys/:id/test', authMiddleware, async (req, res) => {
     return res.status(404).json({ error: 'Key not found' });
   }
   
-  const start = Date.now();
-  try {
-    // Call Gemini API upstream with minimal test prompt
-    const upstreamUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${key.apiKey}`;
-    const response = await fetch(upstreamUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: 'ping' }] }]
-      })
-    });
-    
-    const elapsed = Date.now() - start;
-    
-    if (response.ok) {
-      key.status = 'Healthy';
-      key.lastError = null;
-      key.latency = elapsed;
-      key.successCount = (key.successCount || 0) + 1;
-      saveConfig();
-      res.json({ success: true, latency: elapsed });
-    } else {
-      const errorText = await response.text();
-      let errorMessage = errorText;
-      try {
-        const parsed = JSON.parse(errorText);
-        errorMessage = parsed.error?.message || errorText;
-      } catch (_) {}
-      
-      key.status = 'Failing';
-      key.lastError = `${response.status} - ${errorMessage}`;
-      key.errorCount = (key.errorCount || 0) + 1;
-      saveConfig();
-      res.json({ success: false, error: errorMessage });
-    }
-  } catch (err) {
-    const elapsed = Date.now() - start;
-    key.status = 'Failing';
-    key.lastError = `Network Error: ${err.message}`;
-    key.errorCount = (key.errorCount || 0) + 1;
-    saveConfig();
-    res.json({ success: false, error: err.message });
-  }
+  const result = await pingKey(key);
+  saveConfig();
+  broadcastConfigUpdate();
+  res.json(result);
 });
 
 // Intercept all Gemini generateContent/streamGenerateContent requests

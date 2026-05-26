@@ -2,6 +2,8 @@
   "clientAccessKey": "apikey",
   "dashboardPassword": "admin",
   "routingStrategy": "priority",
+  "autoPingEnabled": false,
+  "autoPingInterval": 15,
   "keys": [],
   "models": [
     {

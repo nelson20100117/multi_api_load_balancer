@@ -28,6 +28,13 @@ const proxyStatusBadge = document.getElementById('proxy-status-badge');
 const proxyStatusText = document.getElementById('proxy-status-text');
 const routingStrategySelect = document.getElementById('routing-strategy-select');
 const saveRoutingStrategyBtn = document.getElementById('save-routing-strategy-btn');
+const batchTestBtn = document.getElementById('batch-test-btn');
+const autoPingSwitch = document.getElementById('auto-ping-switch');
+const autoPingIntervalSelect = document.getElementById('auto-ping-interval-select');
+const saveAutoPingBtn = document.getElementById('save-auto-ping-btn');
+const homeKeysStatusList = document.getElementById('home-keys-status-list');
+const overviewKeysRatio = document.getElementById('overview-keys-ratio');
+const overviewSuccessRate = document.getElementById('overview-success-rate');
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
@@ -38,30 +45,48 @@ document.addEventListener('DOMContentLoaded', () => {
 // Event Listeners
 function setupEventListeners() {
   // Tab Routing listeners
-  const tabDashboardBtn = document.getElementById('tab-dashboard-btn');
+  const tabHomeBtn = document.getElementById('tab-home-btn');
   const tabAnalyticsBtn = document.getElementById('tab-analytics-btn');
-  const dashboardView = document.getElementById('dashboard-view');
+  const tabSettingsBtn = document.getElementById('tab-settings-btn');
+  const homeView = document.getElementById('home-view');
   const analyticsView = document.getElementById('analytics-view');
+  const settingsView = document.getElementById('settings-view');
   
-  if (tabDashboardBtn && tabAnalyticsBtn) {
-    tabDashboardBtn.addEventListener('click', () => {
-      tabDashboardBtn.classList.add('active');
+  if (tabHomeBtn && tabAnalyticsBtn && tabSettingsBtn) {
+    tabHomeBtn.addEventListener('click', () => {
+      tabHomeBtn.classList.add('active');
       tabAnalyticsBtn.classList.remove('active');
-      dashboardView.style.display = 'grid';
+      tabSettingsBtn.classList.remove('active');
+      
+      homeView.style.display = 'grid';
       analyticsView.style.display = 'none';
+      settingsView.style.display = 'none';
     });
     
     tabAnalyticsBtn.addEventListener('click', async () => {
       tabAnalyticsBtn.classList.add('active');
-      tabDashboardBtn.classList.remove('active');
-      dashboardView.style.display = 'none';
+      tabHomeBtn.classList.remove('active');
+      tabSettingsBtn.classList.remove('active');
+      
+      homeView.style.display = 'none';
       analyticsView.style.display = 'flex';
+      settingsView.style.display = 'none';
       
       const timeframeSelector = document.getElementById('analytics-timeframe');
       if (timeframeSelector && timeframeSelector.value !== '10m') {
         await loadHistoricalAnalytics(timeframeSelector.value);
       }
       updateAnalyticsChart();
+    });
+    
+    tabSettingsBtn.addEventListener('click', () => {
+      tabSettingsBtn.classList.add('active');
+      tabHomeBtn.classList.remove('active');
+      tabAnalyticsBtn.classList.remove('active');
+      
+      homeView.style.display = 'none';
+      analyticsView.style.display = 'none';
+      settingsView.style.display = 'grid';
     });
   }
 
@@ -274,6 +299,35 @@ function setupEventListeners() {
       await saveConfiguration({ routingStrategy: newStrategy });
     });
   }
+
+  // Save Auto-Ping settings
+  if (saveAutoPingBtn) {
+    saveAutoPingBtn.addEventListener('click', async () => {
+      const enabled = autoPingSwitch.checked;
+      const interval = parseInt(autoPingIntervalSelect.value, 10) || 15;
+      await saveConfiguration({
+        autoPingEnabled: enabled,
+        autoPingInterval: interval
+      });
+    });
+  }
+
+  // Auto-Ping toggle switch change listener to save immediately
+  if (autoPingSwitch) {
+    autoPingSwitch.addEventListener('change', async () => {
+      const enabled = autoPingSwitch.checked;
+      const interval = parseInt(autoPingIntervalSelect.value, 10) || 15;
+      await saveConfiguration({
+        autoPingEnabled: enabled,
+        autoPingInterval: interval
+      });
+    });
+  }
+
+  // Batch Test Keys
+  if (batchTestBtn) {
+    batchTestBtn.addEventListener('click', runBatchKeysTest);
+  }
 }
 
 // API Functions
@@ -297,6 +351,12 @@ async function loadConfiguration(skipRenderKeys = false) {
     if (routingStrategySelect) {
       routingStrategySelect.value = localConfig.routingStrategy || 'priority';
     }
+    if (autoPingSwitch) {
+      autoPingSwitch.checked = localConfig.autoPingEnabled === true;
+    }
+    if (autoPingIntervalSelect) {
+      autoPingIntervalSelect.value = localConfig.autoPingInterval || 15;
+    }
     
     // Render models selector
     renderModelsSelector(localConfig.models);
@@ -306,6 +366,9 @@ async function loadConfiguration(skipRenderKeys = false) {
       // Render keys list
       renderKeysList();
     }
+    
+    // Render read-only status board on Home tab
+    renderKeyStatusBoard();
     
     // Populate dropdown selectors
     renderSelectorDropdowns();
@@ -325,6 +388,8 @@ async function saveConfiguration(updatedFields) {
     if (updatedFields.routingStrategy !== undefined) payload.routingStrategy = updatedFields.routingStrategy;
     if (updatedFields.keys !== undefined) payload.keys = updatedFields.keys;
     if (updatedFields.dashboardPassword !== undefined) payload.dashboardPassword = updatedFields.dashboardPassword;
+    if (updatedFields.autoPingEnabled !== undefined) payload.autoPingEnabled = updatedFields.autoPingEnabled;
+    if (updatedFields.autoPingInterval !== undefined) payload.autoPingInterval = updatedFields.autoPingInterval;
 
     const res = await fetch('/api/config', {
       method: 'POST',
@@ -591,6 +656,21 @@ function initLogStream() {
             <span class="log-time">[System Init]</span> Connected. Logs will print here.
           </div>
         `;
+      }
+    } else if (data.type === 'config') {
+      localConfig = data.config;
+      localKeys = localConfig.keys || [];
+      renderKeyStatusBoard();
+      
+      // Sync switch and selectors without re-rendering focus in Settings tab
+      if (autoPingSwitch) {
+        autoPingSwitch.checked = localConfig.autoPingEnabled === true;
+      }
+      if (autoPingIntervalSelect) {
+        autoPingIntervalSelect.value = localConfig.autoPingInterval || 15;
+      }
+      if (routingStrategySelect) {
+        routingStrategySelect.value = localConfig.routingStrategy || 'priority';
       }
     } else {
       appendLogToConsole(data);
@@ -1252,5 +1332,149 @@ function updateAnalyticsChart() {
         }
       }
     });
+  }
+}
+
+// Dynamic Health & Latency status board rendering for Home tab
+function renderKeyStatusBoard() {
+  if (!homeKeysStatusList) return;
+
+  homeKeysStatusList.innerHTML = '';
+  
+  // Filter keys that have API keys set
+  const configuredKeys = localKeys.filter(k => k.apiKey && k.apiKey.trim() !== '');
+  
+  if (configuredKeys.length === 0) {
+    homeKeysStatusList.innerHTML = `
+      <div class="no-keys-fallback" style="padding: 1.5rem 1rem;">
+        <i class="fa-solid fa-key" style="font-size: 1.5rem;"></i>
+        <p style="font-size: 0.8rem; margin-top: 0.5rem;">No keys configured yet. Go to Settings tab to add keys.</p>
+      </div>
+    `;
+    if (overviewKeysRatio) overviewKeysRatio.innerText = '0 / 0';
+    if (overviewSuccessRate) overviewSuccessRate.innerText = '0%';
+    return;
+  }
+
+  let healthyCount = 0;
+  let totalSuccess = 0;
+  let totalError = 0;
+
+  configuredKeys.forEach(key => {
+    if (key.enabled !== false && key.status === 'Healthy') {
+      healthyCount++;
+    }
+    
+    totalSuccess += key.successCount || 0;
+    totalError += key.errorCount || 0;
+    
+    const item = document.createElement('div');
+    item.className = 'key-status-board-item';
+    
+    let statusClass = 'idle';
+    let statusLabel = key.status || 'Idle';
+    if (key.enabled === false) {
+      statusClass = 'disabled';
+      statusLabel = 'Disabled';
+    } else if (key.status === 'Healthy') {
+      statusClass = 'healthy';
+    } else if (key.status === 'Failing') {
+      statusClass = 'failing';
+    }
+
+    item.innerHTML = `
+      <div class="key-status-name">${key.name}</div>
+      <div class="key-status-meta">
+        <span class="latency-pill">${key.latency ? key.latency + 'ms' : '--'}</span>
+        <span class="status-badge ${statusClass}">${statusLabel}</span>
+      </div>
+    `;
+    homeKeysStatusList.appendChild(item);
+  });
+
+  const activeEnabledKeysCount = configuredKeys.filter(k => k.enabled !== false).length;
+  if (overviewKeysRatio) {
+    overviewKeysRatio.innerText = `${healthyCount} / ${activeEnabledKeysCount}`;
+  }
+
+  const totalRequests = totalSuccess + totalError;
+  const globalSuccessPercentage = totalRequests > 0 ? Math.round((totalSuccess / totalRequests) * 100) : 0;
+  if (overviewSuccessRate) {
+    overviewSuccessRate.innerText = `${globalSuccessPercentage}%`;
+  }
+}
+
+// Perform concurrent latency ping checks on all active keys
+async function runBatchKeysTest() {
+  const enabledKeys = localKeys.filter(k => k.apiKey && k.apiKey.trim() !== '' && k.enabled !== false);
+  if (enabledKeys.length === 0) {
+    showToast('No active or enabled keys to test.', 'error');
+    return;
+  }
+
+  // Disable button and show spinner
+  batchTestBtn.disabled = true;
+  const originalText = batchTestBtn.innerHTML;
+  batchTestBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Testing...';
+  showToast('Starting concurrent key latency batch test...', 'info');
+
+  try {
+    const token = localStorage.getItem('dashboardSessionToken') || '';
+    
+    // Test concurrently using Promise.allSettled
+    const testPromises = enabledKeys.map(async (key) => {
+      // Find key items in Settings UI to show a pulsing indicator
+      const keyCard = document.querySelector(`.key-item[data-id="${key.id}"]`);
+      if (keyCard) {
+        keyCard.classList.add('key-testing-animation');
+      }
+      
+      try {
+        const res = await fetch(`/api/keys/${key.id}/test`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (keyCard) {
+          keyCard.classList.remove('key-testing-animation');
+        }
+        
+        if (res.status === 401) {
+          handleUnauthorized();
+          throw new Error('Unauthorized');
+        }
+        
+        return await res.json();
+      } catch (err) {
+        if (keyCard) {
+          keyCard.classList.remove('key-testing-animation');
+        }
+        throw err;
+      }
+    });
+
+    const results = await Promise.allSettled(testPromises);
+    
+    let healthyCount = 0;
+    let failedCount = 0;
+    
+    results.forEach(res => {
+      if (res.status === 'fulfilled' && res.value && res.value.success) {
+        healthyCount++;
+      } else {
+        failedCount++;
+      }
+    });
+
+    showToast(`Batch test complete: ${healthyCount} healthy, ${failedCount} failed`, healthyCount > 0 ? 'success' : 'error');
+    
+    // Reload configurations (and thus re-render keys and health status board)
+    await loadConfiguration();
+  } catch (err) {
+    console.error('Error during batch testing:', err);
+    showToast('Batch testing encountered an error', 'error');
+  } finally {
+    batchTestBtn.disabled = false;
+    batchTestBtn.innerHTML = originalText;
   }
 }
