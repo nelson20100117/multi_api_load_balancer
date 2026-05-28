@@ -727,6 +727,144 @@ app.post('/v1beta/models/:modelWithAction', async (req, res) => {
   }
 });
 
+// GET /v1beta/models (Secured)
+app.get('/v1beta/models', async (req, res) => {
+  // 1. Authenticate Request
+  const providedKey = req.query.key || req.headers['x-goog-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+  if (!providedKey || providedKey !== config.clientAccessKey) {
+    return res.status(401).json({
+      error: {
+        code: 401,
+        message: 'Unauthorized Client Access Key. Provide a valid key in the query parameter `?key=YOUR_KEY` or the `x-goog-api-key` header.',
+        status: 'UNAUTHENTICATED'
+      }
+    });
+  }
+
+  // Find active keys
+  let activeKeys = config.keys.filter(k => k.apiKey && k.apiKey.trim() !== '' && k.enabled !== false);
+  if (activeKeys.length === 0) {
+    return res.status(503).json({
+      error: {
+        code: 503,
+        message: 'No active healthy backend API keys are configured.',
+        status: 'UNAVAILABLE'
+      }
+    });
+  }
+
+  // Sort keys if latency strategy is active
+  if (config.routingStrategy === 'latency') {
+    activeKeys = [...activeKeys].sort((a, b) => {
+      const latA = a.latency === null || a.latency === undefined ? Infinity : a.latency;
+      const latB = b.latency === null || b.latency === undefined ? Infinity : b.latency;
+      return latA - latB;
+    });
+  }
+
+  // Try sequentially with failover fallback
+  for (const key of activeKeys) {
+    try {
+      const upstreamUrl = new URL('https://generativelanguage.googleapis.com/v1beta/models');
+      upstreamUrl.searchParams.append('key', key.apiKey);
+      for (const [qKey, qVal] of Object.entries(req.query)) {
+        if (qKey !== 'key') {
+          upstreamUrl.searchParams.append(qKey, qVal);
+        }
+      }
+
+      const response = await fetch(upstreamUrl.toString());
+      if (response.ok) {
+        const data = await response.json();
+        return res.json(data);
+      } else {
+        console.warn(`[Proxy GET /v1beta/models] Key '${key.name}' failed with status ${response.status}`);
+      }
+    } catch (err) {
+      console.error(`[Proxy GET /v1beta/models] Network error with key '${key.name}':`, err);
+    }
+  }
+
+  // If all keys fail
+  return res.status(502).json({
+    error: {
+      code: 502,
+      message: 'All configured backend keys failed to fetch models from the upstream API.',
+      status: 'BAD_GATEWAY'
+    }
+  });
+});
+
+// GET /v1beta/models/:model (Secured)
+app.get('/v1beta/models/:model', async (req, res) => {
+  const model = req.params.model;
+  
+  // 1. Authenticate Request
+  const providedKey = req.query.key || req.headers['x-goog-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+  if (!providedKey || providedKey !== config.clientAccessKey) {
+    return res.status(401).json({
+      error: {
+        code: 401,
+        message: 'Unauthorized Client Access Key. Provide a valid key in the query parameter `?key=YOUR_KEY` or the `x-goog-api-key` header.',
+        status: 'UNAUTHENTICATED'
+      }
+    });
+  }
+
+  // Find active keys
+  let activeKeys = config.keys.filter(k => k.apiKey && k.apiKey.trim() !== '' && k.enabled !== false);
+  if (activeKeys.length === 0) {
+    return res.status(503).json({
+      error: {
+        code: 503,
+        message: 'No active healthy backend API keys are configured.',
+        status: 'UNAVAILABLE'
+      }
+    });
+  }
+
+  // Sort keys if latency strategy is active
+  if (config.routingStrategy === 'latency') {
+    activeKeys = [...activeKeys].sort((a, b) => {
+      const latA = a.latency === null || a.latency === undefined ? Infinity : a.latency;
+      const latB = b.latency === null || b.latency === undefined ? Infinity : b.latency;
+      return latA - latB;
+    });
+  }
+
+  // Try sequentially with failover fallback
+  for (const key of activeKeys) {
+    try {
+      const upstreamUrl = new URL(`https://generativelanguage.googleapis.com/v1beta/models/${model}`);
+      upstreamUrl.searchParams.append('key', key.apiKey);
+      for (const [qKey, qVal] of Object.entries(req.query)) {
+        if (qKey !== 'key') {
+          upstreamUrl.searchParams.append(qKey, qVal);
+        }
+      }
+
+      const response = await fetch(upstreamUrl.toString());
+      if (response.ok) {
+        const data = await response.json();
+        return res.json(data);
+      } else {
+        console.warn(`[Proxy GET /v1beta/models/${model}] Key '${key.name}' failed with status ${response.status}`);
+      }
+    } catch (err) {
+      console.error(`[Proxy GET /v1beta/models/${model}] Network error with key '${key.name}':`, err);
+    }
+  }
+
+  // If all keys fail
+  return res.status(502).json({
+    error: {
+      code: 502,
+      message: `All configured backend keys failed to fetch model details for '${model}' from the upstream API.`,
+      status: 'BAD_GATEWAY'
+    }
+  });
+});
+
 // API Status Endpoint
 app.get('/v1beta', (req, res) => {
   res.json({
